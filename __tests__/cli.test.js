@@ -93,13 +93,13 @@ describe("CLI", () => {
   });
 
   describe("status", () => {
-    it("should report no checkpoints when dir missing", () => {
+    it("should report no state when not initialized", () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-status-"));
       const output = execSync(`node "${CLI}" status`, {
         encoding: "utf8",
         cwd: tmpDir,
       });
-      expect(output).toContain("No .ctx/checkpoints/");
+      expect(output).toContain("No .ctx/state.json");
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
   });

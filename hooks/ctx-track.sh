@@ -125,4 +125,44 @@ if state["toolCallCount"] % 5 == 0:
     with open(status_path, "w") as f:
         f.write("\n".join(lines))
 
+# Auto-checkpoint at orange/red threshold (once per threshold)
+checkpointed = state.get("checkpointedThresholds", [])
+files = state.get("filesRead", [])
+if threshold in ("orange", "red") and threshold not in checkpointed:
+    checkpointed.append(threshold)
+    state["checkpointedThresholds"] = checkpointed
+    with open(state_file, "w") as f:
+        json.dump(state, f, indent=2)
+
+    cp_dir = os.path.join(os.path.dirname(state_file), "checkpoints")
+    os.makedirs(cp_dir, exist_ok=True)
+    now = datetime.now()
+    ts = now.strftime("%Y%m%d-%H%M%S")
+    cp_type = "emergency" if threshold == "red" else "checkpoint"
+    cp_file = os.path.join(cp_dir, f"ctx-{cp_type}-{ts}-auto.md")
+
+    files_list = "\n".join(f"- {f['path']}" for f in files[-10:])
+    cp_content = f"""---
+type: {cp_type}
+percentage: {pct}
+threshold: {threshold}
+timestamp: {now.isoformat()}
+source: auto-hook
+---
+
+## {'Emergency Save' if threshold == 'red' else 'Auto-Checkpoint'} at {pct}%
+
+Context reached {threshold} threshold. State auto-saved.
+
+### Files in Session
+{files_list}
+
+### Stats
+- Tool calls: {state['toolCallCount']}
+- Duplicates: {state.get('dupCount', 0)}
+- Writes: {state.get('writeCount', 0)}
+"""
+    with open(cp_file, "w") as f:
+        f.write(cp_content)
+
 PYEOF

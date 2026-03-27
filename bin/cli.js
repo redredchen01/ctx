@@ -143,17 +143,42 @@ function uninstall() {
 }
 
 function status() {
-  const cpDir = path.join(process.cwd(), ".ctx", "checkpoints");
-  if (!fs.existsSync(cpDir)) {
-    console.log("\nNo .ctx/checkpoints/ found. Run `ctx install` first.\n");
+  const statePath = path.join(process.cwd(), ".ctx", "state.json");
+  if (!fs.existsSync(statePath)) {
+    console.log("\nNo .ctx/state.json found. Run `ctx init` first.\n");
     return;
   }
-  const files = fs.readdirSync(cpDir).filter((f) => f.endsWith(".md"));
-  console.log(`\n\u{1F9E0} ctx status\n`);
-  console.log(`  Checkpoints: ${files.length}`);
-  if (files.length > 0) {
-    const latest = files.sort().reverse()[0];
-    console.log(`  Latest: ${latest}`);
+
+  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  const pct = Math.min(100, Math.round((state.usedTokens / state.maxTokens) * 100));
+  const icons = { green: "\u{1F7E2}", yellow: "\u{1F7E1}", orange: "\u{1F7E0}", red: "\u{1F534}" };
+  const thresholds = [[40, "green"], [60, "yellow"], [80, "orange"], [100, "red"]];
+  let threshold = "red";
+  for (const [max, name] of thresholds) {
+    if (pct < max) { threshold = name; break; }
+  }
+  const icon = icons[threshold];
+  const bar = "\u2588".repeat(Math.round(pct / 3.33)) + "\u2591".repeat(30 - Math.round(pct / 3.33));
+  const usedK = Math.round(state.usedTokens / 1000);
+  const maxK = Math.round(state.maxTokens / 1000);
+
+  console.log(`\n  ${icon} ctx — Context Window Status`);
+  console.log(`  ${"─".repeat(40)}\n`);
+  console.log(`  Usage:  ${bar} ${pct}%`);
+  console.log(`          ${usedK}K / ${maxK}K tokens\n`);
+  console.log(`  Threshold:    ${threshold} ${icon}`);
+  console.log(`  Files read:   ${(state.filesRead || []).length}`);
+  console.log(`  Duplicates:   ${state.dupCount || 0}`);
+  console.log(`  Tool calls:   ${state.toolCallCount || 0}`);
+  console.log(`  Writes:       ${state.writeCount || 0}`);
+
+  const cpDir = path.join(process.cwd(), ".ctx", "checkpoints");
+  if (fs.existsSync(cpDir)) {
+    const cps = fs.readdirSync(cpDir).filter((f) => f.endsWith(".md"));
+    if (cps.length > 0) {
+      console.log(`\n  Checkpoints:  ${cps.length}`);
+      console.log(`  Latest:       ${cps.sort().reverse()[0]}`);
+    }
   }
   console.log("");
 }
