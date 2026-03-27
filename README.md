@@ -5,20 +5,19 @@
 The **stateful context OS** for free-tier AI agent users. Zero manual overhead.
 
 [![npm](https://img.shields.io/npm/v/@redredchen01/ctx)](https://www.npmjs.com/package/@redredchen01/ctx)
-[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)](.)
+[![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen)](.)
+[![CI](https://github.com/redredchen01/ctx/actions/workflows/test.yml/badge.svg)](https://github.com/redredchen01/ctx/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 30 秒安裝，永久受益
+## 一行安裝，永久受益
 
 ```bash
-npx @redredchen01/ctx install    # 安裝 skill
-npx @redredchen01/ctx init       # 初始化 .ctx/
-npx @redredchen01/ctx hook       # 安裝自動追蹤 hook
+npx @redredchen01/ctx setup
 ```
 
-裝完了。以後每次用 AI agent，ctx 在背景自動運作。
+一行搞定：裝 skill + 初始化 .ctx/ + 安裝自動追蹤 hook。裝完就不用管了。
 
 ---
 
