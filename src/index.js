@@ -8,6 +8,7 @@ const { CompactionGuard } = require("./compaction");
 const { ToolOptimizer } = require("./optimizer");
 const { MemoryLoader } = require("./loader");
 const { SessionManager } = require("./session");
+const { StateManager } = require("./state");
 
 module.exports = {
   ContextEstimator,
@@ -20,4 +21,5 @@ module.exports = {
   ToolOptimizer,
   MemoryLoader,
   SessionManager,
+  StateManager,
 };

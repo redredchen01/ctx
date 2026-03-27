@@ -1,9 +1,9 @@
 ---
 name: ctx
-version: 1.0.0
+version: 2.0.0
 description: |
-  Context OS for 200K free-tier agents. Dedup reads, budget responses, plan tasks,
-  guard compaction, optimize tools, resume sessions. Say "ctx" for status.
+  Stateful context OS for 200K free-tier agents. Reads/writes .ctx/state.json
+  on every operation. Dedup, budget, checkpoint, resume — all persisted to disk.
 allowed-tools:
   - Bash
   - Read
@@ -11,44 +11,57 @@ allowed-tools:
   - Glob
 ---
 
-# ctx — Context OS for Free Users
+# ctx v2 — Stateful Context OS
 
-Maximize your 200K. Deduplicate, budget, plan, guard, optimize, resume.
+State persists to `.ctx/`. Execution habits with disk backing.
 
 ## Session Start
 
-Check `.ctx/checkpoints/` for previous state. If found, show:
-`📋 Resuming from checkpoint (~60%). Last: [summary]`
+1. Read `.ctx/state.json`. If missing → create: `{"maxTokens":200000,"usedTokens":0,"filesRead":[],"dupCount":0,"responseCount":0,"toolCallCount":0,"checkpointedThresholds":[],"startedAt":"ISO"}`
+2. Check `.ctx/checkpoints/` → show resume if found
+3. Show status line
 
-Load memory selectively: MEMORY.md index only (~200 tokens), then load only relevant files based on user's first message. Always load user + feedback types.
+## On Every File Read
 
-## Always-On
+Before reading, check `state.json → filesRead[]`:
+- Already there? → **SKIP**. Say "Already read [file], using cached knowledge." Increment `dupCount`, save.
+- New file → read it, append to `filesRead[]`, add `lines×15` to `usedTokens`, save.
 
-Every 5 tool calls: `[ctx: ~45% | 12r 5w | 0dup | 🟢]`
+## On Every Response
 
-Before ANY read: already read → use memory. Need part → offset+limit. >200 lines → section only.
+Add `chars×0.25` to `usedTokens`. Increment `responseCount`. Save.
 
-Optimize: batch parallel reads, cache grep results, combine operations.
+## On Every Tool Call
 
-## Thresholds + Response Budget
+Add `1500` to `usedTokens`. Increment `toolCallCount`. Save.
 
-| % | St | Response | Action |
-|---|----|----------|--------|
-| <40 | 🟢 | Normal | — |
-| 40-60 | 🟡 | ~300w | Line-range reads. Consolidate. |
-| 60-80 | 🟠 | ~150w | **Auto-checkpoint** + alert. |
-| >80 | 🔴 | ~50w | **Emergency save**, new session. |
+## Every 5 Tool Calls
 
-## Task Budget
+1. Read state, compute percentage + threshold
+2. Show: `[ctx: ~45% | 12r 5t | 0dup | 🟢]`
+3. Write `.ctx/status.md` (human dashboard)
 
-Before 3+ file tasks: estimate tokens (files×lines×15 + responses×600 + tools×1500). If > remaining → warn + suggest split.
+## Thresholds + Budget
 
-## Compaction Guard
+| % | Threshold | Response budget |
+|---|-----------|----------------|
+| <40 | 🟢 green | normal |
+| 40-60 | 🟡 yellow | ~300 words |
+| 60-80 | 🟠 orange | ~150 words → auto-checkpoint |
+| >80 | 🔴 red | ~50 words → emergency save + new session |
 
-On `[compacted]`, re-read signals, or compression notice → **immediately** save to `.ctx/checkpoints/ctx-emergency-*.md`: task, decisions, files, pending, critical context.
+## Auto-Checkpoint (at 🟠)
 
-## Tokens: turn ~800, response ~600, tool ~1500, file = lines×15
+Write `.ctx/checkpoints/ctx-checkpoint-*.md` with task, decisions, files, pending.
+Mark threshold in state so it doesn't re-trigger.
 
-## Checkpoints → `.ctx/checkpoints/`
+## File Layout
 
-## Platforms: OpenClaw/Claude Code/Cline/Kilo 200K, Cursor 128K
+```
+.ctx/
+├── state.json          ← machine state (read/write every op)
+├── status.md           ← human dashboard (refreshed every 5 calls)
+└── checkpoints/        ← auto + manual saves
+```
+
+## CLI: `python3 scripts/ctx_status.py` to view, `python3 scripts/ctx_checkpoint.py [msg]` to save.

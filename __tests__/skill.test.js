@@ -27,9 +27,9 @@ describe("SKILL.md constraints", () => {
     expect(content).toContain("allowed-tools:");
   });
 
-  it("should reference OpenClaw as primary platform", () => {
+  it("should reference state.json for disk-backed state", () => {
     const content = fs.readFileSync(skillPath, "utf8");
-    expect(content.toLowerCase()).toContain("openclaw");
+    expect(content).toContain("state.json");
   });
 
   it("should contain threshold definitions", () => {
