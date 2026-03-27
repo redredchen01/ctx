@@ -1,6 +1,6 @@
 ---
 name: ctx
-version: 2.5.0
+version: 2.6.0
 description: |
   Stateful context OS for 200K free-tier agents. Hook auto-tracks every operation
   to .ctx/state.json. Zero manual overhead. Dedup, budget, checkpoint, resume.
@@ -39,9 +39,12 @@ Then follow the budget:
 
 ## Dedup Rule
 
-Before reading a file, check `state.json → filesRead[]`:
-- Found? → **Skip.** Say "Already read, using cached context."
-- Not found? → Read normally. Hook will track it.
+Before reading a file, run: `npx @redredchen01/ctx track read <file> <lines>`
+- If output contains "DUP" → **Skip.** Use cached knowledge.
+- Otherwise → Read normally. State auto-updated.
+
+For tool calls: `npx @redredchen01/ctx track tool <type>`
+This works on **any** agent (Cursor, Cline, Kilo, OpenClaw, etc).
 
 ## Checkpoints
 

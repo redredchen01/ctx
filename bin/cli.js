@@ -349,6 +349,104 @@ function historyCmd() {
   console.log(`  Duplicates blocked: ${totalDups} (saved ~${Math.round(totalDups * 200 * 15 / 1000)}K tokens)\n`);
 }
 
+// Universal tracking — works on ANY agent that can run bash
+function track(args) {
+  const statePath = path.join(process.cwd(), ".ctx", "state.json");
+  if (!fs.existsSync(statePath)) {
+    // Auto-init if needed
+    const ctxDir = path.join(process.cwd(), ".ctx");
+    fs.mkdirSync(path.join(ctxDir, "checkpoints"), { recursive: true });
+    fs.writeFileSync(statePath, JSON.stringify({
+      maxTokens: 200000, usedTokens: 0, filesRead: [], dupCount: 0,
+      toolCallCount: 0, writeCount: 0, bashCount: 0, responseCount: 0,
+      checkpointedThresholds: [], startedAt: new Date().toISOString(),
+    }, null, 2));
+  }
+
+  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  const subCmd = args[0];
+
+  if (subCmd === "read") {
+    // ctx track read <file> [lines]
+    const file = args[1];
+    const lines = parseInt(args[2]) || 200;
+    if (!file) { console.log("Usage: ctx track read <file> [lines]"); return; }
+
+    const existing = (state.filesRead || []).find((f) => f.path === file);
+    if (existing) {
+      existing.readCount++;
+      state.dupCount = (state.dupCount || 0) + 1;
+      state.usedTokens += lines * 15;
+      // Output for AI to see
+      console.log(`[ctx] DUP: ${file} already read (${existing.readCount}x). Consider using cached knowledge.`);
+    } else {
+      state.filesRead = state.filesRead || [];
+      state.filesRead.push({ path: file, lines, readCount: 1, at: new Date().toISOString() });
+      state.usedTokens += lines * 15;
+    }
+    state.toolCallCount = (state.toolCallCount || 0) + 1;
+    state.usedTokens += 1500;
+
+  } else if (subCmd === "tool") {
+    // ctx track tool [type]
+    state.toolCallCount = (state.toolCallCount || 0) + 1;
+    state.usedTokens += 1500;
+    const type = args[1] || "unknown";
+    if (type === "write" || type === "edit") state.writeCount = (state.writeCount || 0) + 1;
+    if (type === "bash") state.bashCount = (state.bashCount || 0) + 1;
+
+  } else if (subCmd === "response") {
+    // ctx track response [chars]
+    const chars = parseInt(args[1]) || 500;
+    state.usedTokens += Math.round(chars * 0.25);
+    state.responseCount = (state.responseCount || 0) + 1;
+
+  } else {
+    console.log(`Usage: ctx track <read|tool|response> [args]
+  ctx track read <file> [lines]    Track a file read
+  ctx track tool [write|bash|...]  Track a tool call
+  ctx track response [chars]       Track a response`);
+    return;
+  }
+
+  // Compute threshold
+  const pct = Math.min(100, Math.round((state.usedTokens / (state.maxTokens || 200000)) * 100));
+  const thresholds = [[40, "green"], [60, "yellow"], [80, "orange"], [100, "red"]];
+  let threshold = "red";
+  for (const [max, name] of thresholds) {
+    if (pct < max) { threshold = name; break; }
+  }
+  state._lastThreshold = threshold;
+  state._lastPercentage = pct;
+  state._lastUpdated = new Date().toISOString();
+
+  // Auto-checkpoint at orange/red
+  const checkpointed = state.checkpointedThresholds || [];
+  if ((threshold === "orange" || threshold === "red") && !checkpointed.includes(threshold)) {
+    checkpointed.push(threshold);
+    state.checkpointedThresholds = checkpointed;
+
+    const cpDir = path.join(process.cwd(), ".ctx", "checkpoints");
+    fs.mkdirSync(cpDir, { recursive: true });
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const cpType = threshold === "red" ? "emergency" : "checkpoint";
+    const filesList = (state.filesRead || []).slice(-10).map((f) => `- ${f.path}`).join("\n");
+    const content = `---\ntype: ${cpType}\npercentage: ${pct}\nthreshold: ${threshold}\ntimestamp: ${now.toISOString()}\nsource: auto-track\n---\n\n## ${cpType === "emergency" ? "Emergency Save" : "Auto-Checkpoint"} at ${pct}%\n\n### Files\n${filesList}\n\n### Stats\n- Tool calls: ${state.toolCallCount}\n- Duplicates: ${state.dupCount || 0}\n- Writes: ${state.writeCount || 0}\n`;
+    fs.writeFileSync(path.join(cpDir, `ctx-${cpType}-${ts}-auto.md`), content);
+    console.log(`[ctx] ${threshold === "red" ? "\u{1F534} EMERGENCY" : "\u{1F7E0} CHECKPOINT"} saved at ${pct}%`);
+  }
+
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+  // Output status every 5 calls
+  if ((state.toolCallCount || 0) % 5 === 0) {
+    const icons = { green: "\u{1F7E2}", yellow: "\u{1F7E1}", orange: "\u{1F7E0}", red: "\u{1F534}" };
+    console.log(`[ctx: ~${pct}% | ${(state.filesRead||[]).length}r ${state.writeCount||0}w | ${state.dupCount||0}dup | ${icons[threshold]}]`);
+  }
+}
+
 const cmd = process.argv[2];
 const args = process.argv.slice(3);
 
@@ -374,20 +472,23 @@ switch (cmd) {
   case "uninstall":
     uninstall();
     break;
+  case "track":
+    track(args);
+    break;
   case "status":
     status();
     break;
   default:
     console.log(`
-\u{1F9E0} ctx v2.4 — Stateful Context OS for Free AI Agent Users
+\u{1F9E0} ctx v2.6 — Stateful Context OS for Free AI Agent Users
 
 One-time setup:
   ctx setup [--full]     \u2B50 Install skill + init + hook (all in one!)
 
-Individual commands:
-  ctx install [--full]   Install skill to your AI agent
-  ctx init               Initialize .ctx/ in current project
-  ctx hook               Install auto-tracking hook
+Universal tracking (works on ANY agent):
+  ctx track read <file> [lines]   Track a file read (auto-dedup)
+  ctx track tool [type]           Track a tool call
+  ctx track response [chars]      Track a response
 
 Session:
   ctx status             Show context window state
@@ -395,6 +496,9 @@ Session:
   ctx history            Show session history + stats
 
 Other:
+  ctx install [--full]   Install skill to your AI agent
+  ctx init               Initialize .ctx/ in current project
+  ctx hook               Install auto-tracking hook (Claude Code only)
   ctx uninstall          Remove skill (keeps .ctx/ data)
 
 Supported: OpenClaw, Claude Code, Cursor, Cline, Kilo Code, Roo Code
