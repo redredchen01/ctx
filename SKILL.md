@@ -1,9 +1,9 @@
 ---
 name: ctx
-version: 2.0.0
+version: 2.1.0
 description: |
-  Stateful context OS for 200K free-tier agents. Reads/writes .ctx/state.json
-  on every operation. Dedup, budget, checkpoint, resume — all persisted to disk.
+  Stateful context OS for 200K free-tier agents. Hook auto-tracks every operation
+  to .ctx/state.json. Zero manual overhead. Dedup, budget, checkpoint, resume.
 allowed-tools:
   - Bash
   - Read
@@ -11,57 +11,49 @@ allowed-tools:
   - Glob
 ---
 
-# ctx v2 — Stateful Context OS
+# ctx v2.1 — Auto-Tracked Context OS
 
-State persists to `.ctx/`. Execution habits with disk backing.
+Hook auto-tracks everything. You just read state and act on thresholds.
 
 ## Session Start
 
-1. Read `.ctx/state.json`. If missing → create: `{"maxTokens":200000,"usedTokens":0,"filesRead":[],"dupCount":0,"responseCount":0,"toolCallCount":0,"checkpointedThresholds":[],"startedAt":"ISO"}`
+1. Read `.ctx/state.json` — if exists, resuming
 2. Check `.ctx/checkpoints/` → show resume if found
-3. Show status line
+3. No state.json → create: `{"maxTokens":200000,"usedTokens":0,"filesRead":[],"dupCount":0,"toolCallCount":0,"writeCount":0,"checkpointedThresholds":[],"startedAt":"ISO"}`
 
-## On Every File Read
+## Hook handles: filesRead[], dupCount, toolCallCount, writeCount, tokens, status.md
 
-Before reading, check `state.json → filesRead[]`:
-- Already there? → **SKIP**. Say "Already read [file], using cached knowledge." Increment `dupCount`, save.
-- New file → read it, append to `filesRead[]`, add `lines×15` to `usedTokens`, save.
+## Your Job: Read State + Act on Thresholds
 
-## On Every Response
+Every ~5 tool calls, read `.ctx/state.json` and show:
+`[ctx: ~{_lastPercentage}% | {filesRead.length}r {writeCount}w | {dupCount}dup | ICON]`
 
-Add `chars×0.25` to `usedTokens`. Increment `responseCount`. Save.
+Then follow the budget:
 
-## On Every Tool Call
+| % | Icon | Response budget | Action |
+|---|------|----------------|--------|
+| <40 | 🟢 | Normal | — |
+| 40-60 | 🟡 | ~300 words | Use offset+limit for reads |
+| 60-80 | 🟠 | ~150 words | Write checkpoint to `.ctx/checkpoints/` |
+| >80 | 🔴 | ~50 words | Emergency save + recommend new session |
 
-Add `1500` to `usedTokens`. Increment `toolCallCount`. Save.
+## Dedup Rule
 
-## Every 5 Tool Calls
+Before reading a file, check `state.json → filesRead[]`:
+- Found? → **Skip.** Say "Already read, using cached context."
+- Not found? → Read normally. Hook will track it.
 
-1. Read state, compute percentage + threshold
-2. Show: `[ctx: ~45% | 12r 5t | 0dup | 🟢]`
-3. Write `.ctx/status.md` (human dashboard)
+## Checkpoints
 
-## Thresholds + Budget
-
-| % | Threshold | Response budget |
-|---|-----------|----------------|
-| <40 | 🟢 green | normal |
-| 40-60 | 🟡 yellow | ~300 words |
-| 60-80 | 🟠 orange | ~150 words → auto-checkpoint |
-| >80 | 🔴 red | ~50 words → emergency save + new session |
-
-## Auto-Checkpoint (at 🟠)
-
-Write `.ctx/checkpoints/ctx-checkpoint-*.md` with task, decisions, files, pending.
-Mark threshold in state so it doesn't re-trigger.
-
-## File Layout
-
+At 🟠, write `.ctx/checkpoints/ctx-checkpoint-*.md`:
 ```
-.ctx/
-├── state.json          ← machine state (read/write every op)
-├── status.md           ← human dashboard (refreshed every 5 calls)
-└── checkpoints/        ← auto + manual saves
+---
+type: checkpoint
+percentage: N
+---
+Task summary, decisions, key files, pending work.
 ```
 
-## CLI: `python3 scripts/ctx_status.py` to view, `python3 scripts/ctx_checkpoint.py [msg]` to save.
+Or user runs: `python3 scripts/ctx_checkpoint.py "message"`
+
+## View: `python3 scripts/ctx_status.py` or read `.ctx/status.md`

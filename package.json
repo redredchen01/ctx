@@ -1,6 +1,6 @@
 {
   "name": "@redredchen01/ctx",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Context window auto-manager for free AI agent users. Your 200K context, maximized.",
   "main": "src/index.js",
   "bin": {
@@ -35,7 +35,8 @@
     "SKILL-full.md",
     "README.md",
     "LICENSE",
-    "scripts/"
+    "scripts/",
+    "hooks/"
   ],
   "devDependencies": {
     "jest": "^30.3.0"
