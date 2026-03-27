@@ -1,6 +1,6 @@
 ---
 name: ctx
-version: 0.4.0
+version: 0.4.1
 description: |
   Context window auto-manager for 200K free-tier agents (OpenClaw, Claude Code, Cline, etc).
   Tracks usage, deduplicates file reads, controls response budget, auto-checkpoints.
