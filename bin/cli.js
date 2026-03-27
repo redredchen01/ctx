@@ -261,10 +261,101 @@ function hookInstall() {
   console.log("\n\u{2728} Every tool call now auto-updates .ctx/state.json\n");
 }
 
+function setup(args) {
+  console.log("\n\u{1F9E0} ctx setup — One command to rule them all\n");
+  console.log("Step 1/3: Install skill...");
+  install(args);
+  console.log("Step 2/3: Initialize .ctx/...");
+  init();
+  console.log("Step 3/3: Install hook...");
+  hookInstall();
+  console.log("  \u{1F389} All done! ctx is fully operational.\n");
+  console.log("  Next: start using your AI agent. ctx runs in the background.");
+  console.log("  Check status anytime: npx @redredchen01/ctx status\n");
+}
+
+function reset() {
+  const statePath = path.join(process.cwd(), ".ctx", "state.json");
+  const historyPath = path.join(process.cwd(), ".ctx", "history.json");
+
+  console.log("\n\u{1F9E0} ctx reset — Start fresh session\n");
+
+  if (fs.existsSync(statePath)) {
+    // Archive current session to history
+    const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+    const session = {
+      startedAt: state.startedAt,
+      endedAt: new Date().toISOString(),
+      usedTokens: state.usedTokens,
+      maxTokens: state.maxTokens,
+      filesRead: (state.filesRead || []).length,
+      dupCount: state.dupCount || 0,
+      toolCallCount: state.toolCallCount || 0,
+      writeCount: state.writeCount || 0,
+    };
+
+    let history = [];
+    if (fs.existsSync(historyPath)) {
+      history = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+    }
+    history.push(session);
+    // Keep last 50 sessions
+    if (history.length > 50) history = history.slice(-50);
+    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
+    console.log(`  \u{1F4BE} Session archived to history (${history.length} total)`);
+    console.log(`     Used: ${Math.round(state.usedTokens / 1000)}K tokens | ${(state.filesRead || []).length} files | ${state.dupCount || 0} dups`);
+  }
+
+  // Reset state
+  const newState = {
+    maxTokens: 200000,
+    usedTokens: 0,
+    filesRead: [],
+    dupCount: 0,
+    toolCallCount: 0,
+    writeCount: 0,
+    bashCount: 0,
+    responseCount: 0,
+    checkpointedThresholds: [],
+    startedAt: new Date().toISOString(),
+  };
+  fs.mkdirSync(path.join(process.cwd(), ".ctx"), { recursive: true });
+  fs.writeFileSync(statePath, JSON.stringify(newState, null, 2));
+  console.log("  \u{2705} State reset to zero");
+  console.log("\n\u{2728} Fresh session ready!\n");
+}
+
+function historyCmd() {
+  const historyPath = path.join(process.cwd(), ".ctx", "history.json");
+  if (!fs.existsSync(historyPath)) {
+    console.log("\nNo session history yet. Run `ctx reset` after a session to archive it.\n");
+    return;
+  }
+
+  const history = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+  console.log(`\n\u{1F9E0} ctx history — ${history.length} sessions\n`);
+  console.log(`  ${"Date".padEnd(12)} ${"Tokens".padStart(8)} ${"Files".padStart(6)} ${"Dups".padStart(5)} ${"Calls".padStart(6)}`);
+  console.log(`  ${"─".repeat(12)} ${"─".repeat(8)} ${"─".repeat(6)} ${"─".repeat(5)} ${"─".repeat(6)}`);
+
+  for (const s of history.slice(-10)) {
+    const date = s.startedAt ? s.startedAt.slice(0, 10) : "unknown";
+    const tokens = `${Math.round(s.usedTokens / 1000)}K`;
+    console.log(`  ${date.padEnd(12)} ${tokens.padStart(8)} ${String(s.filesRead).padStart(6)} ${String(s.dupCount).padStart(5)} ${String(s.toolCallCount).padStart(6)}`);
+  }
+
+  const totalTokens = history.reduce((s, h) => s + h.usedTokens, 0);
+  const totalDups = history.reduce((s, h) => s + h.dupCount, 0);
+  console.log(`\n  Total: ${Math.round(totalTokens / 1000)}K tokens across ${history.length} sessions`);
+  console.log(`  Duplicates blocked: ${totalDups} (saved ~${Math.round(totalDups * 200 * 15 / 1000)}K tokens)\n`);
+}
+
 const cmd = process.argv[2];
 const args = process.argv.slice(3);
 
 switch (cmd) {
+  case "setup":
+    setup(args);
+    break;
   case "install":
     install(args);
     break;
@@ -274,6 +365,12 @@ switch (cmd) {
   case "hook":
     hookInstall();
     break;
+  case "reset":
+    reset();
+    break;
+  case "history":
+    historyCmd();
+    break;
   case "uninstall":
     uninstall();
     break;
@@ -282,20 +379,23 @@ switch (cmd) {
     break;
   default:
     console.log(`
-\u{1F9E0} ctx v2.1 — Stateful Context OS for Free AI Agent Users
+\u{1F9E0} ctx v2.4 — Stateful Context OS for Free AI Agent Users
 
-Setup (one time):
+One-time setup:
+  ctx setup [--full]     \u2B50 Install skill + init + hook (all in one!)
+
+Individual commands:
   ctx install [--full]   Install skill to your AI agent
   ctx init               Initialize .ctx/ in current project
-  ctx hook               Install auto-tracking hook (Claude Code)
+  ctx hook               Install auto-tracking hook
 
-Usage:
+Session:
   ctx status             Show context window state
-  ctx uninstall          Remove skill (keeps .ctx/ data)
+  ctx reset              Archive session + start fresh
+  ctx history            Show session history + stats
 
-Or use Python scripts:
-  python3 scripts/ctx_status.py          Visual status dashboard
-  python3 scripts/ctx_checkpoint.py MSG  Manual checkpoint
+Other:
+  ctx uninstall          Remove skill (keeps .ctx/ data)
 
 Supported: OpenClaw, Claude Code, Cursor, Cline, Kilo Code, Roo Code
 `);

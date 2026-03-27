@@ -1,6 +1,6 @@
 ---
 name: ctx-full
-version: 2.3.0
+version: 2.4.0
 description: |
   Extended context window manager with detailed estimation, multi-platform support,
   memory health scoring, and integration with session-wrap.

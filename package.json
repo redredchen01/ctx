@@ -1,6 +1,6 @@
 {
   "name": "@redredchen01/ctx",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Context window auto-manager for free AI agent users. Your 200K context, maximized.",
   "main": "src/index.js",
   "bin": {
