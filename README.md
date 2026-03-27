@@ -2,7 +2,7 @@
 
 **Context window auto-manager for free AI agent users.** Your 200K context, maximized.
 
-[![npm](https://img.shields.io/npm/v/ctx-skill)](https://www.npmjs.com/package/ctx-skill)
+[![npm](https://img.shields.io/npm/v/@redredchen01/ctx)](https://www.npmjs.com/package/@redredchen01/ctx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -20,7 +20,7 @@ You: 😤
 ## The Solution
 
 ```bash
-npx ctx-skill install
+npx @redredchen01/ctx install
 ```
 
 ctx auto-manages your context window:
@@ -39,7 +39,7 @@ ctx auto-manages your context window:
 ### One command (recommended)
 
 ```bash
-npx ctx-skill install
+npx @redredchen01/ctx install
 ```
 
 Auto-detects your platform and installs the right version:
@@ -59,7 +59,7 @@ Detected 2 platform(s):
 ### Full version (for 1M context users)
 
 ```bash
-npx ctx-skill install --full
+npx @redredchen01/ctx install --full
 ```
 
 ### Manual
@@ -176,7 +176,7 @@ ctx (live monitoring)  ──→  session-wrap (session end)
 Install both for full coverage:
 
 ```bash
-npx ctx-skill install
+npx @redredchen01/ctx install
 npx session-wrap-skill install
 ```
 
@@ -185,7 +185,7 @@ npx session-wrap-skill install
 ## Uninstall
 
 ```bash
-npx ctx-skill uninstall
+npx @redredchen01/ctx uninstall
 ```
 
 Removes skill files but keeps your checkpoints in `.ctx/`.
