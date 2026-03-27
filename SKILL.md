@@ -1,9 +1,9 @@
 ---
 name: ctx
-version: 0.5.0
+version: 1.0.0
 description: |
-  Context window auto-manager for 200K free-tier agents (OpenClaw, Claude Code, Cline, etc).
-  Deduplicates reads, budgets responses, plans tasks, guards against compaction, optimizes tools.
+  Context OS for 200K free-tier agents. Dedup reads, budget responses, plan tasks,
+  guard compaction, optimize tools, resume sessions. Say "ctx" for status.
 allowed-tools:
   - Bash
   - Read
@@ -11,44 +11,44 @@ allowed-tools:
   - Glob
 ---
 
-# ctx — Context Window Manager
+# ctx — Context OS for Free Users
 
-Maximize your 200K. Deduplicate, budget, plan, guard, optimize.
+Maximize your 200K. Deduplicate, budget, plan, guard, optimize, resume.
+
+## Session Start
+
+Check `.ctx/checkpoints/` for previous state. If found, show:
+`📋 Resuming from checkpoint (~60%). Last: [summary]`
+
+Load memory selectively: MEMORY.md index only (~200 tokens), then load only relevant files based on user's first message. Always load user + feedback types.
 
 ## Always-On
 
 Every 5 tool calls: `[ctx: ~45% | 12r 5w | 0dup | 🟢]`
 
-Before ANY read: already read → use memory. Need part → use offset+limit. >200 lines → section only.
+Before ANY read: already read → use memory. Need part → offset+limit. >200 lines → section only.
 
-Tool optimization: batch parallel reads, cache grep results, combine operations.
+Optimize: batch parallel reads, cache grep results, combine operations.
 
 ## Thresholds + Response Budget
 
-| % | Status | Response | Action |
-|---|--------|----------|--------|
-| <40% | 🟢 | Normal | No action |
-| 40-60% | 🟡 | ~300 words | Line-range reads. Consolidate calls. |
-| 60-80% | 🟠 | ~150 words | **Auto-checkpoint** + alert user. |
-| >80% | 🔴 | ~50 words | **Emergency save**, suggest new session. |
+| % | St | Response | Action |
+|---|----|----------|--------|
+| <40 | 🟢 | Normal | — |
+| 40-60 | 🟡 | ~300w | Line-range reads. Consolidate. |
+| 60-80 | 🟠 | ~150w | **Auto-checkpoint** + alert. |
+| >80 | 🔴 | ~50w | **Emergency save**, new session. |
 
-## Task Budget (before multi-file tasks)
+## Task Budget
 
-Before starting a task touching 3+ files, estimate:
-- Files × lines × 15 tokens + responses × 600 + tool calls × 1500
-- If estimate > remaining → warn + suggest splitting or prioritizing
+Before 3+ file tasks: estimate tokens (files×lines×15 + responses×600 + tools×1500). If > remaining → warn + suggest split.
 
 ## Compaction Guard
 
-On these signals, **immediately save all context**:
-- `[compacted]` system message
-- Re-reading a file already in context (memory was pruned)
-- System compression notice
-
-Save to `.ctx/checkpoints/ctx-emergency-*.md` with: task, decisions, files, pending work.
+On `[compacted]`, re-read signals, or compression notice → **immediately** save to `.ctx/checkpoints/ctx-emergency-*.md`: task, decisions, files, pending, critical context.
 
 ## Tokens: turn ~800, response ~600, tool ~1500, file = lines×15
 
-## Checkpoints → `.ctx/checkpoints/ctx-checkpoint-*.md`
+## Checkpoints → `.ctx/checkpoints/`
 
 ## Platforms: OpenClaw/Claude Code/Cline/Kilo 200K, Cursor 128K

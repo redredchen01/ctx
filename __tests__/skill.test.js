@@ -34,9 +34,9 @@ describe("SKILL.md constraints", () => {
 
   it("should contain threshold definitions", () => {
     const content = fs.readFileSync(skillPath, "utf8");
-    expect(content).toMatch(/40%/);
-    expect(content).toMatch(/60%/);
-    expect(content).toMatch(/80%/);
+    expect(content).toMatch(/40/);
+    expect(content).toMatch(/60/);
+    expect(content).toMatch(/80/);
   });
 
   it("should not contain verbose explanations (keep it tight)", () => {

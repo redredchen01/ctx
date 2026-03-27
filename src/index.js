@@ -6,6 +6,8 @@ const { FileReadTracker } = require("./dedup");
 const { TaskPlanner } = require("./planner");
 const { CompactionGuard } = require("./compaction");
 const { ToolOptimizer } = require("./optimizer");
+const { MemoryLoader } = require("./loader");
+const { SessionManager } = require("./session");
 
 module.exports = {
   ContextEstimator,
@@ -16,4 +18,6 @@ module.exports = {
   TaskPlanner,
   CompactionGuard,
   ToolOptimizer,
+  MemoryLoader,
+  SessionManager,
 };
