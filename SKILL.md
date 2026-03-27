@@ -1,6 +1,6 @@
 ---
 name: ctx
-version: 2.1.0
+version: 2.2.0
 description: |
   Stateful context OS for 200K free-tier agents. Hook auto-tracks every operation
   to .ctx/state.json. Zero manual overhead. Dedup, budget, checkpoint, resume.
